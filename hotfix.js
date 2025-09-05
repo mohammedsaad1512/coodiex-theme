@@ -127,3 +127,106 @@ else initAll();
 //   var first = document.querySelector('.bannerizer');
 //   if (first) first.classList.add('full-bleed');
 // }, 800);
+// ===== Progress Bar مرتبط بالأوتوبلاي =====
+(function(){
+  function ensureProgress(root){
+    if (root.querySelector('.banner-progress')) return;
+    var barWrap = document.createElement('div');
+    barWrap.className = 'banner-progress';
+    barWrap.innerHTML = '<div class="banner-progress__bar"></div>';
+    root.appendChild(barWrap);
+  }
+  function animateProgress(root, speed){
+    var bar = root.querySelector('.banner-progress__bar');
+    if (!bar) return;
+    bar.style.transition = 'none';
+    requestAnimationFrame(function(){
+      bar.style.width = '0%';
+      bar.style.transition = 'width '+ (speed/1000) +'s linear';
+      requestAnimationFrame(function(){ bar.style.width = '100%'; });
+    });
+  }
+
+  function hookSlick(root){
+    var $ = window.jQuery;
+    if (!$ || !$(root).on) return;
+
+    ensureProgress(root);
+
+    // التقاط السرعة من slick (autoplaySpeed) أو 4000ms افتراضي
+    var speed = ($(root).slick && $(root).slick('getSlick') && $(root).slick('getSlick').options.autoplaySpeed) || 4000;
+
+    $(root).on('init reInit', function(){ animateProgress(root, speed); });
+    $(root).on('beforeChange', function(){ animateProgress(root, speed); });
+
+    // لو السلايدر جاهز بالفعل
+    try{ animateProgress(root, speed); }catch(e){}
+  }
+
+  // انتظر ما يتوسم .bannerizer (من سكريبتك الأساسي)
+  function ready(){
+    document.querySelectorAll('.bannerizer').forEach(hookSlick);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready);
+  else ready();
+})();
+// ===== Parallax خفيف بالماوس (IMG أو BG) =====
+(function(){
+  var maxTilt = 6; // نفس var(--banner-tilt) تقريبًا
+  function onMove(e){
+    var box = this.getBoundingClientRect();
+    var cx = (e.clientX - box.left)/box.width  - .5;
+    var cy = (e.clientY - box.top )/box.height - .5;
+    var rx =  (cy * maxTilt);
+    var ry = -(cx * maxTilt);
+
+    // حرّك الصورة/الخلفية
+    var current = this.querySelector('.slick-current') || this;
+    var img = current.querySelector('img');
+    var bg  = current.querySelector('.slider-item.bg-img') || current;
+
+    if (img){
+      img.style.transition = 'transform .08s ease';
+      img.style.transform  = 'scale(1.04) translate('+ (cx*10)+'px,'+ (cy*10)+'px) rotateX('+rx+'deg) rotateY('+ry+'deg)';
+    }else if (bg){
+      bg.style.transition = 'background-position .08s ease';
+      var px = 50 + cx*4, py = 50 + cy*4;
+      bg.style.backgroundPosition = px+'% '+py+'%';
+    }
+  }
+  function onLeave(){
+    var current = this.querySelector('.slick-current') || this;
+    var img = current.querySelector('img');
+    var bg  = current.querySelector('.slider-item.bg-img') || current;
+    if (img){ img.style.transform = 'none'; }
+    if (bg ){ bg.style.backgroundPosition = 'center'; }
+  }
+
+  function bindOne(root){
+    root.addEventListener('mousemove', onMove);
+    root.addEventListener('mouseleave', onLeave);
+  }
+  function ready(){
+    document.querySelectorAll('.bannerizer').forEach(bindOne);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready);
+  else ready();
+})();
+// ===== Skeleton Loading: شغّل الشيمر لحد أول صورة تحمل =====
+(function(){
+  function setLoading(root, on){
+    root.classList.toggle('loading', !!on);
+  }
+  function watchFirstImage(root){
+    var img = root.querySelector('img');
+    if (!img){ setLoading(root,false); return; }
+    if (img.complete){ setLoading(root,false); return; }
+    setLoading(root,true);
+    img.addEventListener('load', function(){ setLoading(root,false); }, {once:true});
+  }
+  function ready(){
+    document.querySelectorAll('.bannerizer').forEach(watchFirstImage);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready);
+  else ready();
+})();
